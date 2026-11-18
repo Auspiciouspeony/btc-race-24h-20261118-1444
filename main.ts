@@ -9,8 +9,8 @@
 //   churns the same dip over and over (each round trip costs ~26 bps), and
 //   in backtests a stop never fired before the take or the window's end.
 //
-//   TREND leg (momentum): EMA(5) crosses above EMA(90) while the 15-bar
-//   return is at least +40 bps. Buy the whole cash. Exit at +250 bps take,
+//   TREND leg (momentum): EMA(12) crosses above EMA(120) while the 10-bar
+//   return is at least +50 bps. Buy the whole cash. Exit at +250 bps take,
 //   -100 bps stop, a 60 bps trailing stop from the peak close, or the EMA
 //   cross back down.
 //
@@ -21,9 +21,16 @@
 // plus the two prior btc-race-24h kits) with an exact-integer replay of the
 // harness fill math (4 bps fee, 2 bps slippage, constant-product impact):
 //   dev (2026-11-17/18): +7.30 USDC, 1 round trip, max drawdown 1.5%
-//   2026-11-14/15:       +11.47 USDC, 3 round trips, max drawdown 1.6%
-//   2026-11-16/17:       +13.48 USDC, 2 round trips, max drawdown 1.9%
+//   2026-11-14/15:       +37.41 USDC, 3 round trips, max drawdown 1.5%
+//   2026-11-16/17:       +13.30 USDC, 2 round trips, max drawdown 1.9%
 // Every window positive, every window at least one trade, drawdowns small.
+// Round 2 change (from round 1's EMA(5)/EMA(90), 15-bar +40 bps): the
+// slower EMA(12)/EMA(120) cross with a stronger 10-bar +50 bps momentum
+// filter skips whipsaw cross-ups (round 1's trend leg bought a losing
+// dip on 2026-11-14/15 and missed the main +4% rebound) and catches the
+// genuine rebound instead. The improvement is a broad plateau, not one
+// tuned point: 1,354 of 3,600 neighbouring trend configs also total over
+// +45 USDC across the three windows, and the dip leg is unchanged.
 // The EMA trend family on its own loses on choppy windows (whipsaw) and the
 // dip leg on its own trades only 2-3 times per window; the two legs together
 // are the best of both that the backtests found.
@@ -43,10 +50,10 @@ const DIP_DROP_BPS = 80;
 const DIP_TAKE_BPS = 100;
 
 // Trend leg.
-const EMA_FAST = 5;
-const EMA_SLOW = 90;
-const TREND_MOM_BARS = 15;
-const TREND_MOM_MIN_BPS = 40;
+const EMA_FAST = 12;
+const EMA_SLOW = 120;
+const TREND_MOM_BARS = 10;
+const TREND_MOM_MIN_BPS = 50;
 const TREND_TAKE_BPS = 250;
 const TREND_STOP_BPS = 100;
 const TREND_TRAIL_BPS = 60;
@@ -117,9 +124,9 @@ await runBars({
         pendingBuy = true;
         return [{ side: 'buy', symbol: SYMBOL, notional_quote_units: state.cash, max_slippage_bps: MAX_SLIPPAGE_BPS }];
       }
-      // Trend leg: EMA(5) cross above EMA(90) with 15-bar momentum >= 40 bps.
+      // Trend leg: EMA(12) cross above EMA(120) with 10-bar momentum >= 50 bps.
       if (
-        idx >= 92 &&
+        idx >= 122 &&
         prevEmaFast !== null && prevEmaSlow !== null &&
         emaFast > emaSlow && prevEmaFast <= prevEmaSlow &&
         retBps(c, closes[idx - TREND_MOM_BARS]) >= TREND_MOM_MIN_BPS
